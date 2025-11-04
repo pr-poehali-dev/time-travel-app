@@ -497,7 +497,7 @@ export default function Index() {
                     <Alert className="border-secondary/50">
                       <Icon name="Info" size={16} />
                       <AlertDescription className="text-xs">
-                        Сильное ускорение (>15 m/s²) во время активации может указывать на 
+                        Сильное ускорение (&gt;15 m/s²) во время активации может указывать на 
                         локальное искривление пространства-времени
                       </AlertDescription>
                     </Alert>
