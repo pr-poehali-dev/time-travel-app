@@ -75,6 +75,8 @@ export default function Index() {
     canvas.height = canvas.offsetHeight;
 
     let frame = 0;
+    let animationId: number;
+    
     const animate = () => {
       ctx.fillStyle = 'rgba(10, 10, 20, 0.1)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -99,10 +101,16 @@ export default function Index() {
       }
 
       frame++;
-      requestAnimationFrame(animate);
+      animationId = requestAnimationFrame(animate);
     };
 
     animate();
+    
+    return () => {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+    };
   }, [isSimulating]);
 
   const handleActivate = () => {
