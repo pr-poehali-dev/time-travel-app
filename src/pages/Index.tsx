@@ -7,10 +7,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import Icon from '@/components/ui/icon';
 
 export default function Index() {
-  const [mass, setMass] = useState([50]);
-  const [angularMomentum, setAngularMomentum] = useState([0.5]);
-  const [cosmologicalConstant, setCosmologicalConstant] = useState([0.5]);
-  const [quantumEnergy, setQuantumEnergy] = useState([0]);
+  const [mass, setMass] = useState([100]);
+  const [angularMomentum, setAngularMomentum] = useState([0.99]);
+  const [cosmologicalConstant, setCosmologicalConstant] = useState([1]);
+  const [quantumEnergy, setQuantumEnergy] = useState([100]);
   const [isSimulating, setIsSimulating] = useState(false);
   const [isActivated, setIsActivated] = useState(false);
   const [countdown, setCountdown] = useState(10);
@@ -18,7 +18,69 @@ export default function Index() {
   const [curvatureData, setCurvatureData] = useState<number[]>([]);
   const [wormholeStability, setWormholeStability] = useState(0);
   const [hawkingRadiation, setHawkingRadiation] = useState(0);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [userLocation, setUserLocation] = useState<{lat: number, lon: number} | null>(null);
+  const [deviceMotion, setDeviceMotion] = useState({ x: 0, y: 0, z: 0 });
+  const [gravWaveDetected, setGravWaveDetected] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.log('Геолокация недоступна:', error);
+        }
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleMotion = (event: DeviceMotionEvent) => {
+      if (event.accelerationIncludingGravity) {
+        const x = event.accelerationIncludingGravity.x || 0;
+        const y = event.accelerationIncludingGravity.y || 0;
+        const z = event.accelerationIncludingGravity.z || 0;
+        setDeviceMotion({ x, y, z });
+        
+        const magnitude = Math.sqrt(x*x + y*y + z*z);
+        if (magnitude > 15 && isSimulating) {
+          setGravWaveDetected(true);
+          setTimeout(() => setGravWaveDetected(false), 2000);
+        }
+      }
+    };
+
+    if (window.DeviceMotionEvent) {
+      if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+        (DeviceMotionEvent as any).requestPermission()
+          .then((permissionState: string) => {
+            if (permissionState === 'granted') {
+              window.addEventListener('devicemotion', handleMotion);
+            }
+          })
+          .catch(console.error);
+      } else {
+        window.addEventListener('devicemotion', handleMotion);
+      }
+    }
+
+    return () => {
+      window.removeEventListener('devicemotion', handleMotion);
+    };
+  }, [isSimulating]);
 
   useEffect(() => {
     const calculatePhysics = () => {
@@ -43,7 +105,7 @@ export default function Index() {
       const hawking = (1 / (8 * Math.PI * M)) * 100;
       setHawkingRadiation(hawking);
 
-      const totalEnergy = M * a * Lambda * (1 + Q);
+      const totalEnergy = M * a * Lambda * (1 + Q / 100);
       setEnergyLevel(Math.min(100, totalEnergy));
     };
     
@@ -56,13 +118,24 @@ export default function Index() {
       return () => clearTimeout(timer);
     } else if (countdown === 0 && isActivated) {
       setIsSimulating(true);
+      const startTime = Date.now();
+      
       setTimeout(() => {
+        const endTime = Date.now();
+        const timeDiff = endTime - startTime;
+        console.log(`⏱️ ПОПЫТКА ПРЫЖКА ЗАВЕРШЕНА`);
+        console.log(`📍 Координаты: ${userLocation?.lat.toFixed(4)}, ${userLocation?.lon.toFixed(4)}`);
+        console.log(`⚡ Энергия: ${energyLevel.toFixed(2)}%`);
+        console.log(`🌀 Стабильность червоточины: ${wormholeStability.toFixed(2)}%`);
+        console.log(`⏰ Прошло времени: ${timeDiff}ms`);
+        console.log(`🔬 Детектор движения: x=${deviceMotion.x.toFixed(2)}, y=${deviceMotion.y.toFixed(2)}, z=${deviceMotion.z.toFixed(2)}`);
+        
         setIsSimulating(false);
         setIsActivated(false);
         setCountdown(10);
       }, 5000);
     }
-  }, [isActivated, countdown]);
+  }, [isActivated, countdown, energyLevel, wormholeStability, userLocation, deviceMotion]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -114,10 +187,15 @@ export default function Index() {
   }, [isSimulating]);
 
   const handleActivate = () => {
-    if (energyLevel >= 50 && wormholeStability >= 30) {
-      setIsActivated(true);
-      setCountdown(10);
-    }
+    setIsActivated(true);
+    setCountdown(10);
+  };
+
+  const handleMaxPower = () => {
+    setMass([100]);
+    setAngularMomentum([0.99]);
+    setCosmologicalConstant([1]);
+    setQuantumEnergy([100]);
   };
 
   return (
@@ -129,10 +207,27 @@ export default function Index() {
             Машина времени
           </h1>
           <p className="text-xl text-muted-foreground">
-            Квантовый симулятор путешествий во времени
+            Экспериментальная система временных перемещений
           </p>
           <div className="text-sm font-mono bg-card border border-primary/30 rounded-lg p-4 inline-block glow-border">
             ds² = -(1 - 2M/ρ²)dt² + ρ²/(ρ² + a²cos²θ)dr² + Quantum Corrections
+          </div>
+          
+          <div className="flex gap-4 justify-center items-center flex-wrap">
+            <div className="bg-card border border-primary/20 rounded-lg px-4 py-2">
+              <div className="text-xs text-muted-foreground">Текущее время</div>
+              <div className="text-lg font-mono text-primary">
+                {currentTime.toLocaleTimeString('ru-RU')}
+              </div>
+            </div>
+            {userLocation && (
+              <div className="bg-card border border-secondary/20 rounded-lg px-4 py-2">
+                <div className="text-xs text-muted-foreground">Координаты</div>
+                <div className="text-sm font-mono text-secondary">
+                  {userLocation.lat.toFixed(4)}, {userLocation.lon.toFixed(4)}
+                </div>
+              </div>
+            )}
           </div>
           
           {isActivated && (
@@ -140,6 +235,15 @@ export default function Index() {
               <Icon name="AlertTriangle" size={20} className="text-destructive" />
               <AlertDescription className="text-destructive font-bold text-lg">
                 АКТИВАЦИЯ ЧЕРЕЗ {countdown} СЕКУНД
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {gravWaveDetected && (
+            <Alert className="border-primary bg-primary/10 max-w-md mx-auto animate-pulse-glow">
+              <Icon name="Radio" size={20} className="text-primary" />
+              <AlertDescription className="text-primary font-bold">
+                🌊 ГРАВИТАЦИОННАЯ ВОЛНА ОБНАРУЖЕНА!
               </AlertDescription>
             </Alert>
           )}
@@ -151,9 +255,9 @@ export default function Index() {
               <Icon name="Gauge" size={18} className="mr-2" />
               Управление
             </TabsTrigger>
-            <TabsTrigger value="quantum" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Icon name="Atom" size={18} className="mr-2" />
-              Квантовая физика
+            <TabsTrigger value="sensors" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Icon name="Radar" size={18} className="mr-2" />
+              Сенсоры
             </TabsTrigger>
             <TabsTrigger value="visualization" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Icon name="LineChart" size={18} className="mr-2" />
@@ -249,8 +353,17 @@ export default function Index() {
                   </div>
 
                   <Button
+                    onClick={handleMaxPower}
+                    variant="outline"
+                    className="w-full border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground"
+                  >
+                    <Icon name="TrendingUp" size={20} className="mr-2" />
+                    МАКСИМАЛЬНАЯ МОЩНОСТЬ
+                  </Button>
+
+                  <Button
                     onClick={handleActivate}
-                    disabled={isActivated || isSimulating || energyLevel < 50 || wormholeStability < 30}
+                    disabled={isActivated || isSimulating}
                     className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold animate-pulse-glow"
                     size="lg"
                   >
@@ -271,12 +384,6 @@ export default function Index() {
                       </>
                     )}
                   </Button>
-                  
-                  {energyLevel < 50 && (
-                    <p className="text-xs text-muted-foreground text-center">
-                      Недостаточно энергии. Увеличьте параметры.
-                    </p>
-                  )}
                 </CardContent>
               </Card>
 
@@ -291,15 +398,12 @@ export default function Index() {
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm">Уровень энергии</span>
+                      <span className="text-sm">Уровень энергии (E=mc²)</span>
                       <span className="text-sm font-mono text-primary">{energyLevel.toFixed(1)}%</span>
                     </div>
                     <div className="h-3 bg-muted rounded-full overflow-hidden">
                       <div 
-                        className={`h-full transition-all duration-500 ${
-                          energyLevel >= 80 ? 'bg-destructive' : 
-                          energyLevel >= 50 ? 'bg-primary' : 'bg-secondary'
-                        }`}
+                        className="h-full transition-all duration-500 bg-primary animate-pulse-glow"
                         style={{ width: `${energyLevel}%` }}
                       />
                     </div>
@@ -312,10 +416,7 @@ export default function Index() {
                     </div>
                     <div className="h-3 bg-muted rounded-full overflow-hidden">
                       <div 
-                        className={`h-full transition-all duration-500 ${
-                          wormholeStability >= 70 ? 'bg-primary' : 
-                          wormholeStability >= 30 ? 'bg-secondary' : 'bg-destructive'
-                        }`}
+                        className="h-full transition-all duration-500 bg-secondary"
                         style={{ width: `${wormholeStability}%` }}
                       />
                     </div>
@@ -339,14 +440,14 @@ export default function Index() {
                     <div className="bg-muted/50 rounded-lg p-4 border border-secondary/20">
                       <div className="text-xs text-muted-foreground mb-1">Горизонт событий</div>
                       <div className="text-2xl font-mono text-secondary">
-                        {(mass[0] + Math.sqrt(mass[0] * mass[0] - angularMomentum[0] * angularMomentum[0])).toFixed(1)}
+                        {(mass[0] + Math.sqrt(Math.max(0, mass[0] * mass[0] - angularMomentum[0] * angularMomentum[0]))).toFixed(1)}
                       </div>
                       <div className="text-xs text-muted-foreground">км</div>
                     </div>
                     <div className="bg-muted/50 rounded-lg p-4 border border-secondary/20">
                       <div className="text-xs text-muted-foreground mb-1">Эргосфера</div>
                       <div className="text-2xl font-mono text-primary">
-                        {(mass[0] + Math.sqrt(mass[0] * mass[0] - angularMomentum[0] * angularMomentum[0] * Math.cos(Math.PI/4) * Math.cos(Math.PI/4))).toFixed(1)}
+                        {(mass[0] + Math.sqrt(Math.max(0, mass[0] * mass[0] - angularMomentum[0] * angularMomentum[0] * 0.5))).toFixed(1)}
                       </div>
                       <div className="text-xs text-muted-foreground">км</div>
                     </div>
@@ -356,61 +457,86 @@ export default function Index() {
             </div>
           </TabsContent>
 
-          <TabsContent value="quantum" className="animate-slide-up">
-            <Card className="border-secondary/30">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Icon name="Atom" size={24} className="text-secondary" />
-                  Квантовая механика и червоточины
-                </CardTitle>
-                <CardDescription>Эффект Казимира для стабилизации экзотической материи</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <canvas 
-                  ref={canvasRef} 
-                  className="w-full h-96 rounded-lg border border-secondary/20 bg-muted/20"
-                />
-                
-                <div className="grid md:grid-cols-3 gap-4 mt-6">
-                  <div className="bg-muted/30 rounded-lg p-4 border border-secondary/20">
-                    <Icon name="Waves" size={32} className="mb-2 text-secondary" />
-                    <h4 className="font-semibold text-sm mb-2">Квантовые флуктуации</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Виртуальные частицы в вакууме создают отрицательную энергию, 
-                      необходимую для стабилизации червоточины
-                    </p>
-                  </div>
-                  
-                  <div className="bg-muted/30 rounded-lg p-4 border border-secondary/20">
-                    <Icon name="Cpu" size={32} className="mb-2 text-secondary" />
-                    <h4 className="font-semibold text-sm mb-2">Эффект Казимира</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Две близкие пластины создают отрицательное давление из-за 
-                      квантовых флуктуаций между ними
-                    </p>
-                  </div>
-                  
-                  <div className="bg-muted/30 rounded-lg p-4 border border-secondary/20">
-                    <Icon name="RadioTower" size={32} className="mb-2 text-secondary" />
-                    <h4 className="font-semibold text-sm mb-2">Излучение Хокинга</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Черные дыры испускают тепловое излучение из-за квантовых эффектов 
-                      вблизи горизонта событий
-                    </p>
-                  </div>
-                </div>
+          <TabsContent value="sensors" className="animate-slide-up">
+            <div className="grid md:grid-cols-2 gap-6">
+              <Card className="border-secondary/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Icon name="Compass" size={24} className="text-secondary" />
+                    Детектор движения
+                  </CardTitle>
+                  <CardDescription>Акселерометр устройства (гравитационные волны)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-muted/30 rounded-lg p-4 text-center">
+                        <div className="text-xs text-muted-foreground mb-1">X ось</div>
+                        <div className="text-xl font-mono text-primary">{deviceMotion.x.toFixed(2)}</div>
+                        <div className="text-xs text-muted-foreground">m/s²</div>
+                      </div>
+                      <div className="bg-muted/30 rounded-lg p-4 text-center">
+                        <div className="text-xs text-muted-foreground mb-1">Y ось</div>
+                        <div className="text-xl font-mono text-secondary">{deviceMotion.y.toFixed(2)}</div>
+                        <div className="text-xs text-muted-foreground">m/s²</div>
+                      </div>
+                      <div className="bg-muted/30 rounded-lg p-4 text-center">
+                        <div className="text-xs text-muted-foreground mb-1">Z ось</div>
+                        <div className="text-xl font-mono text-primary">{deviceMotion.z.toFixed(2)}</div>
+                        <div className="text-xs text-muted-foreground">m/s²</div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-muted/20 rounded-lg p-4">
+                      <h4 className="text-sm font-semibold mb-2">Магнитуда ускорения</h4>
+                      <div className="text-3xl font-mono text-primary">
+                        {Math.sqrt(deviceMotion.x**2 + deviceMotion.y**2 + deviceMotion.z**2).toFixed(2)} m/s²
+                      </div>
+                    </div>
 
-                <div className="mt-6 bg-muted/20 rounded-lg p-4 border border-primary/20">
-                  <h4 className="font-semibold text-sm mb-3 text-primary">Уравнение энергии Казимира:</h4>
-                  <div className="text-center font-mono text-lg mb-2">
-                    E = -ℏcπ²/(720d³)
+                    <Alert className="border-secondary/50">
+                      <Icon name="Info" size={16} />
+                      <AlertDescription className="text-xs">
+                        Сильное ускорение (>15 m/s²) во время активации может указывать на 
+                        локальное искривление пространства-времени
+                      </AlertDescription>
+                    </Alert>
                   </div>
-                  <p className="text-xs text-muted-foreground text-center">
-                    где d — расстояние между пластинами, ℏ — постоянная Планка, c — скорость света
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              <Card className="border-primary/30 glow-border">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Icon name="Atom" size={24} className="text-primary" />
+                    Квантовая запутанность
+                  </CardTitle>
+                  <CardDescription>Визуализация квантовых флуктуаций</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <canvas 
+                    ref={canvasRef} 
+                    className="w-full h-64 rounded-lg border border-primary/20 bg-muted/20"
+                  />
+                  
+                  <div className="mt-4 space-y-2">
+                    <div className="bg-muted/30 rounded-lg p-3">
+                      <div className="text-xs text-muted-foreground mb-1">Когерентность квантовых состояний</div>
+                      <div className="text-lg font-mono text-primary">
+                        {(Math.abs(Math.sin(Date.now() / 1000)) * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                    
+                    <div className="bg-muted/30 rounded-lg p-3">
+                      <div className="text-xs text-muted-foreground mb-1">Энтропия фон Неймана</div>
+                      <div className="text-lg font-mono text-secondary">
+                        {(Math.log(quantumEnergy[0] + 1) * 1.5).toFixed(3)} bits
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="visualization" className="animate-slide-up">
@@ -504,7 +630,7 @@ export default function Index() {
                     <Icon name="Radar" size={32} className="mx-auto mb-2 text-primary" />
                     <div className="text-sm text-muted-foreground">Сингулярность</div>
                     <div className="text-xl font-mono text-primary">
-                      {(Math.sqrt(mass[0] * mass[0] - angularMomentum[0] * angularMomentum[0])).toFixed(2)}
+                      {Math.sqrt(Math.max(0, mass[0] * mass[0] - angularMomentum[0] * angularMomentum[0])).toFixed(2)}
                     </div>
                   </div>
                 </div>
@@ -513,88 +639,95 @@ export default function Index() {
           </TabsContent>
 
           <TabsContent value="theory" className="animate-slide-up">
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card className="border-primary/30 glow-border">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Icon name="Atom" size={24} className="text-primary" />
-                    Метрика Керра
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="bg-muted/30 rounded-lg p-4 border border-primary/20">
-                    <div className="text-center font-mono text-sm mb-4 leading-relaxed">
-                      ds² = -(1 - 2Mr/ρ²)dt² - 4Mar sin²θ/ρ² dtdφ + <br/>
-                      + ρ²/Δ dr² + ρ²dθ² + (r² + a² + 2Ma²r sin²θ/ρ²)sin²θ dφ²
-                    </div>
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <div className="flex gap-2">
-                        <span className="text-primary font-mono">ρ²</span>
-                        <span>= r² + a²cos²θ</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <span className="text-primary font-mono">Δ</span>
-                        <span>= r² - 2Mr + a²</span>
-                      </div>
-                      <div className="flex gap-2">
-                        <span className="text-primary font-mono">a</span>
-                        <span>= J/M — удельный угловой момент</span>
-                      </div>
-                    </div>
-                  </div>
+            <div className="space-y-6">
+              <Alert className="border-destructive bg-destructive/10">
+                <Icon name="AlertTriangle" size={20} className="text-destructive" />
+                <AlertDescription className="text-destructive">
+                  <strong>⚠️ ВАЖНОЕ ПРЕДУПРЕЖДЕНИЕ:</strong> Это экспериментальная система. 
+                  Реальные путешествия во времени требуют энергии, превышающей выход целой звезды (10⁴⁶ Дж). 
+                  Данное приложение использует реальные формулы физики, но не может создать физическую червоточину. 
+                  Возможны парадоксы причинности при успешной активации.
+                </AlertDescription>
+              </Alert>
 
-                  <div className="space-y-2">
-                    <h4 className="font-semibold text-sm">Эргосфера и эффект Пенроуза</h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      Вращающаяся черная дыра создает эргосферу — область, где пространство-время 
-                      вращается со скоростью света. Здесь возможно извлечение энергии через процесс Пенроуза.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-secondary/30">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Icon name="Sparkles" size={24} className="text-secondary" />
-                    Экзотическая материя
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="bg-muted/30 rounded-lg p-4 border border-secondary/20">
-                    <div className="text-center font-mono text-sm mb-4">
-                      T<sub>μν</sub> = -ℏcπ²/(720d⁴) g<sub>μν</sub>
+              <div className="grid md:grid-cols-2 gap-6">
+                <Card className="border-primary/30 glow-border">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Icon name="Atom" size={24} className="text-primary" />
+                      Метрика Керра
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="bg-muted/30 rounded-lg p-4 border border-primary/20">
+                      <div className="text-center font-mono text-sm mb-4 leading-relaxed">
+                        ds² = -(1 - 2Mr/ρ²)dt² - 4Mar sin²θ/ρ² dtdφ + <br/>
+                        + ρ²/Δ dr² + ρ²dθ² + (r² + a² + 2Ma²r sin²θ/ρ²)sin²θ dφ²
+                      </div>
+                      <div className="space-y-2 text-sm text-muted-foreground">
+                        <div className="flex gap-2">
+                          <span className="text-primary font-mono">ρ²</span>
+                          <span>= r² + a²cos²θ</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-primary font-mono">Δ</span>
+                          <span>= r² - 2Mr + a²</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-primary font-mono">a</span>
+                          <span>= J/M — удельный угловой момент</span>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Отрицательная плотность энергии, создаваемая эффектом Казимира, 
-                      теоретически способна стабилизировать червоточину.
-                    </p>
-                  </div>
 
-                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-sm">Эргосфера и эффект Пенроуза</h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Вращающаяся черная дыра создает эргосферу — область, где пространство-время 
+                        вращается со скоростью света. Здесь возможно извлечение энергии через процесс Пенроуза.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-secondary/30">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Icon name="Sparkles" size={24} className="text-secondary" />
+                      Требования для активации
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
                     <div className="bg-muted/30 rounded-lg p-3 border border-secondary/20">
-                      <div className="font-semibold text-sm mb-1 text-secondary">Условие слабой энергии</div>
+                      <div className="font-semibold text-sm mb-1 text-secondary">E = mc²</div>
                       <div className="text-xs text-muted-foreground">
-                        T<sub>μν</sub>t<sup>μ</sup>t<sup>ν</sup> ≥ 0 — нарушается для червоточин, требуется экзотическая материя
-                      </div>
-                    </div>
-
-                    <div className="bg-muted/30 rounded-lg p-3 border border-secondary/20">
-                      <div className="font-semibold text-sm mb-1 text-secondary">Проблема стабильности</div>
-                      <div className="text-xs text-muted-foreground">
-                        Червоточины нестабильны и коллапсируют быстрее скорости света без экзотической материи
+                        Необходимая энергия: ~10⁴⁶ джоулей (энергия сверхновой)
                       </div>
                     </div>
 
                     <div className="bg-muted/30 rounded-lg p-3 border border-secondary/20">
-                      <div className="font-semibold text-sm mb-1 text-secondary">Эффект Унру</div>
+                      <div className="font-semibold text-sm mb-1 text-secondary">Экзотическая материя</div>
                       <div className="text-xs text-muted-foreground">
-                        T<sub>Unruh</sub> = ℏa/(2πck<sub>B</sub>) — ускоренный наблюдатель видит излучение в вакууме
+                        Отрицательная плотность энергии для стабилизации червоточины
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+
+                    <div className="bg-muted/30 rounded-lg p-3 border border-secondary/20">
+                      <div className="font-semibold text-sm mb-1 text-secondary">Парадоксы</div>
+                      <div className="text-xs text-muted-foreground">
+                        Парадокс дедушки, причинные петли, множественные временные линии
+                      </div>
+                    </div>
+
+                    <div className="bg-muted/30 rounded-lg p-3 border border-secondary/20">
+                      <div className="font-semibold text-sm mb-1 text-secondary">Квантовая запутанность</div>
+                      <div className="text-xs text-muted-foreground">
+                        |ψ⟩ = α|0⟩ + β|1⟩ — суперпозиция состояний для временной связи
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
